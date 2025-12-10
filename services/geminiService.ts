@@ -1,4 +1,5 @@
 import { GoogleGenAI, Chat } from "@google/genai";
+import { TaxFormType } from "../types";
 
 // Initialize the Gemini client
 const getAiClient = () => {
@@ -18,7 +19,7 @@ You are professional, precise, and reassuring.
 
 Capabilities:
 1. Explain tax concepts simply.
-2. Analyze uploaded document metadata (simulated).
+2. Analyze uploaded document metadata.
 3. Suggest potential deductions based on user input.
 4. Warn about audit risks.
 
@@ -50,74 +51,91 @@ export const createTaxChatSession = async (userContext?: string): Promise<Chat |
   }
 };
 
-export const analyzeDocumentMock = async (fileName: string): Promise<{ text: string, data?: any }> => {
-    // In a real app, we would send the image/pdf content to Gemini.
-    // Here we simulate an agentic analysis response based on filename.
-    
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate processing
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => {
+        if (typeof reader.result === 'string') {
+            // Remove the data URL prefix (e.g., "data:image/jpeg;base64,")
+            resolve(reader.result.split(',')[1]);
+        } else {
+            reject(new Error('Failed to read file'));
+        }
+    };
+    reader.onerror = error => reject(error);
+  });
+};
 
-    const name = fileName.toLowerCase();
+export const analyzeDocument = async (file: File): Promise<{ text: string, data?: any, type: string, confidence: number }> => {
+    const ai = getAiClient();
+    if (!ai) {
+        throw new Error("AI Client not configured");
+    }
 
-    if (name.includes('w2') || name.includes('w-2')) {
+    try {
+        const base64Data = await fileToBase64(file);
+        
+        const prompt = `
+        You are an intelligent document processing engine for US Tax Forms. 
+        Analyze the attached document image or PDF.
+        
+        1. CLASSIFY the document into one of these types: ${Object.values(TaxFormType).join(', ')}. If it is not a recognized tax form, classify as "Unknown".
+        
+        2. EXTRACT relevant data fields based on the document type.
+           - W-2: Employer EIN, Wages, Tips, Fed Income Tax, SS Wages, Medicare Wages, State.
+           - 1099-NEC: Payer Name, Payer TIN, Nonemployee Comp, Fed Tax Withheld, State Tax No.
+           - 1099-DIV: Payer Name, Total Ordinary Dividends, Qualified Dividends, Federal Income Tax Withheld.
+           - 1099-INT: Payer Name, Interest Income, Federal Income Tax Withheld.
+           - Receipt: Merchant, Date, Amount, Category.
+           - Schedule K-1: Entity Name, Ordinary Business Income, Net Rental Real Estate Income.
+        
+        3. RETURN a JSON object with this structure:
+        {
+            "type": "Classified Type",
+            "confidence": 0.95,
+            "summary": "Short description of the document contents.",
+            "data": {
+                "Field Name": "Value" 
+            }
+        }
+        
+        Rules:
+        - For monetary values, return them as numbers (e.g. 1050.50), do not include '$' or commas.
+        - For IDs (EIN, TIN, Zip), return as strings.
+        - If a field is not found, do not invent it. Omit it or use null.
+        `;
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: {
+                parts: [
+                    { inlineData: { mimeType: file.type, data: base64Data } },
+                    { text: prompt }
+                ]
+            },
+            config: {
+                responseMimeType: 'application/json'
+            }
+        });
+
+        const responseText = response.text || "{}";
+        const result = JSON.parse(responseText);
+
         return {
-            text: "I've analyzed your W-2. It looks like standard employment income. I've extracted your wages and withholdings. Everything seems to match IRS records.",
-            data: {
-                "Employer EIN": "12-3456789",
-                "Wages, Tips": 85000.00,
-                "Fed Income Tax": 12500.00,
-                "SS Wages": 85000.00,
-                "Medicare Wages": 85000.00,
-                "State": "CA"
-            }
+            text: result.summary || "Document processed successfully.",
+            data: result.data || {},
+            type: result.type || "Unknown",
+            confidence: result.confidence || 0.5
         };
-    } else if (name.includes('1099-div')) {
-         return {
-            text: "I've processed your 1099-DIV. I see dividend income which may be taxed at a lower capital gains rate.",
-            data: {
-                "Payer Name": "Brokerage Services Inc",
-                "Total Ordinary Dividends": 1250.00,
-                "Qualified Dividends": 1100.00,
-                "Federal Income Tax Withheld": 0.00
-            }
-         };
-    } else if (name.includes('1099-int')) {
-         return {
-            text: "I've analyzed your 1099-INT. This interest income will be added to your taxable income.",
-            data: {
-                "Payer Name": "National Savings Bank",
-                "Interest Income": 450.25,
-                "Federal Income Tax Withheld": 0.00
-            }
-         };
-    } else if (name.includes('k-1') || name.includes('k1')) {
-         return {
-            text: "I see a Schedule K-1. I've extracted your share of the business income/loss.",
-            data: {
-                "Entity Name": "Partnership Ventures LP",
-                "Ordinary Business Income": 5200.00,
-                "Net Rental Real Estate Income": -1200.00,
-                "Self-Employment Earnings": 5200.00
-            }
-         };
-    } else if (name.includes('1099')) {
-         return {
-            text: "I see a 1099-NEC. Since you have freelance income, I recommend we look into Schedule C deductions for your home office or equipment expenses.",
-            data: {
-                "Payer Name": "Tech Corp LLC",
-                "Payer TIN": "98-7654321",
-                "Nonemployee Comp": 15400.00,
-                "Fed Tax Withheld": 0.00,
-                "State Tax No.": "CA-5542"
-            }
-        };
-    } else {
+
+    } catch (error) {
+        console.error("IDP Analysis Error:", error);
         return {
-            text: "I've processed this document. I'll keep it in your secure Tax Data Vault for reference.",
-            data: {
-                "Document Date": "2024-03-15",
-                "Category": "Uncategorized Expense",
-                "Amount": 120.50
-            }
+            text: "Failed to analyze document.",
+            data: {},
+            type: "Unknown",
+            confidence: 0
         };
     }
 };
