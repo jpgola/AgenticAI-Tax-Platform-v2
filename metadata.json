@@ -1,0 +1,5 @@
+{
+  "name": "AgenticAI Tax Platform v2",
+  "description": "A modular, AI-powered tax filing platform that automates workflows, maximizes deductions, and ensures compliance using Gemini models.",
+  "requestFramePermissions": []
+}
