@@ -8,6 +8,9 @@ export const calculateTaxSummary = (documents: TaxDocument[]): TaxSummary => {
   // Track specific income sources
   let w2Income = 0;
   let necIncome = 0;
+  let divIncome = 0;
+  let intIncome = 0;
+  let k1Income = 0;
 
   // 1. Aggregate data from verified documents
   documents.forEach(doc => {
@@ -27,6 +30,30 @@ export const calculateTaxSummary = (documents: TaxDocument[]): TaxSummary => {
         totalIncome += val;
         necIncome += val;
         fedWithholding += Number(data['Fed Tax Withheld'] || 0);
+      }
+      // Parse 1099-DIV Data
+      else if (doc.type === '1099-DIV') {
+         const val = Number(data['Total Ordinary Dividends'] || 0);
+         totalIncome += val;
+         divIncome += val;
+         fedWithholding += Number(data['Federal Income Tax Withheld'] || 0);
+      }
+      // Parse 1099-INT Data
+      else if (doc.type === '1099-INT') {
+         const val = Number(data['Interest Income'] || 0);
+         totalIncome += val;
+         intIncome += val;
+         fedWithholding += Number(data['Federal Income Tax Withheld'] || 0);
+      }
+      // Parse Schedule K-1 Data
+      else if (doc.type === 'Schedule K-1') {
+         // Simply summing business and rental income for estimation purposes
+         const businessIncome = Number(data['Ordinary Business Income'] || 0);
+         const rentalIncome = Number(data['Net Rental Real Estate Income'] || 0);
+         const netK1 = businessIncome + rentalIncome;
+         
+         totalIncome += netK1;
+         k1Income += netK1;
       }
       // Parse Receipts
       else if (doc.type === 'Receipt') {
@@ -73,7 +100,10 @@ export const calculateTaxSummary = (documents: TaxDocument[]): TaxSummary => {
   // 5. Construct Breakdowns
   const incomeBreakdown = [
     { name: 'W-2 Wages', value: w2Income, color: '#3b82f6' }, // Blue
-    { name: '1099 Income', value: necIncome, color: '#8b5cf6' }, // Purple
+    { name: '1099-NEC', value: necIncome, color: '#8b5cf6' }, // Purple
+    { name: 'Dividends', value: divIncome, color: '#10b981' }, // Emerald
+    { name: 'Interest', value: intIncome, color: '#f59e0b' }, // Amber
+    { name: 'K-1 Income', value: k1Income, color: '#ec4899' }, // Pink
   ].filter(i => i.value > 0);
 
   if (incomeBreakdown.length === 0) {

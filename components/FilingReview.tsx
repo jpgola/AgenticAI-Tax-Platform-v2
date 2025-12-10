@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TaxSummary } from '../types';
 import { Button } from './Button';
 
@@ -7,6 +7,76 @@ interface FilingReviewProps {
 }
 
 export const FilingReview: React.FC<FilingReviewProps> = ({ summary }) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+
+  const handleSubmit = () => {
+    setIsSubmitting(true);
+    // Simulate API submission
+    setTimeout(() => {
+        setIsSubmitting(false);
+        setIsSubmitted(true);
+    }, 2500);
+  };
+
+  const handleDownload = () => {
+      // Simulate creating and downloading a PDF report
+      const textContent = `
+AGENTIC AI TAX SUMMARY 2024
+---------------------------
+Date: ${new Date().toLocaleDateString()}
+Status: ${summary.filingStatus}
+
+Total Income: $${summary.totalIncome}
+Total Deductions: $${summary.deductions}
+Taxable Income: $${Math.max(0, summary.totalIncome - summary.deductions)}
+
+Estimated Tax: $${summary.estimatedTax}
+Estimated Refund: $${summary.estimatedRefund}
+
+This is a generated draft.
+      `;
+      
+      const element = document.createElement("a");
+      const file = new Blob([textContent], {type: 'text/plain'});
+      element.href = URL.createObjectURL(file);
+      element.download = "Tax_Return_Draft_2024.txt";
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+  };
+
+  if (isSubmitted) {
+      return (
+          <div className="flex flex-col items-center justify-center py-16 text-center space-y-6 animate-fade-in-up">
+              <div className="h-24 w-24 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
+                  <svg className="h-12 w-12 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+              </div>
+              <h2 className="text-3xl font-bold text-slate-900">Return Successfully Transmitted!</h2>
+              <p className="text-slate-600 max-w-md">
+                  Your federal tax return has been securely transmitted to the IRS. You will receive an email confirmation shortly with your Submission ID.
+              </p>
+              
+              <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 w-full max-w-md mt-6">
+                  <div className="flex justify-between items-center text-sm mb-2">
+                      <span className="text-slate-500">Transmission ID</span>
+                      <span className="font-mono font-medium text-slate-900">#TRX-8829-2024</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                      <span className="text-slate-500">Date</span>
+                      <span className="font-medium text-slate-900">{new Date().toLocaleString()}</span>
+                  </div>
+              </div>
+
+              <Button onClick={() => window.location.reload()} variant="outline" className="mt-4">
+                  Return to Dashboard
+              </Button>
+          </div>
+      );
+  }
+
   return (
     <div className="space-y-6">
        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -15,8 +85,15 @@ export const FilingReview: React.FC<FilingReviewProps> = ({ summary }) => {
             <p className="text-slate-500">Review your Form 1040 summary before submitting to the IRS.</p>
         </div>
         <div className="flex gap-3">
-             <Button variant="outline">Download PDF</Button>
-             <Button variant="primary">Submit Return</Button>
+             <Button variant="outline" onClick={handleDownload}>Download PDF</Button>
+             <Button 
+                variant="primary" 
+                onClick={handleSubmit} 
+                isLoading={isSubmitting}
+                disabled={summary.totalIncome === 0}
+            >
+                 {summary.totalIncome === 0 ? 'Add Income to Submit' : 'Submit Return'}
+             </Button>
         </div>
       </div>
 
@@ -39,7 +116,7 @@ export const FilingReview: React.FC<FilingReviewProps> = ({ summary }) => {
                     </div>
                     <div className="flex justify-between items-center py-2 border-b border-slate-100 bg-slate-50 -mx-6 px-6">
                         <span className="font-medium text-slate-900">Taxable Income</span>
-                        <span className="font-bold text-slate-900">${(summary.totalIncome - summary.deductions).toLocaleString()}</span>
+                        <span className="font-bold text-slate-900">${Math.max(0, summary.totalIncome - summary.deductions).toLocaleString()}</span>
                     </div>
                      <div className="flex justify-between items-center py-2 border-b border-slate-100">
                         <span className="text-slate-600">Total Tax Liability</span>
@@ -51,7 +128,10 @@ export const FilingReview: React.FC<FilingReviewProps> = ({ summary }) => {
                     </div>
                      <div className="flex justify-between items-center pt-4">
                         <span className="text-lg font-bold text-slate-900">Estimated Refund</span>
-                        <span className="text-2xl font-bold text-emerald-600">+ ${summary.estimatedRefund.toLocaleString()}</span>
+                        <span className={`text-2xl font-bold ${summary.estimatedRefund >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                            {summary.estimatedRefund >= 0 ? '+ ' : ''}
+                            ${summary.estimatedRefund.toLocaleString()}
+                        </span>
                     </div>
                 </div>
             </div>

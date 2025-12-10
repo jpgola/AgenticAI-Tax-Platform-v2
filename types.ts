@@ -7,7 +7,10 @@ export interface User {
 
 export enum TaxFormType {
   W2 = 'W-2',
-  Form1099 = '1099-NEC',
+  Form1099NEC = '1099-NEC',
+  Form1099DIV = '1099-DIV',
+  Form1099INT = '1099-INT',
+  ScheduleK1 = 'Schedule K-1',
   Form1040 = '1040',
   Receipt = 'Receipt'
 }

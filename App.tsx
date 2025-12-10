@@ -66,7 +66,7 @@ function App() {
       >
         {renderView()}
       </Layout>
-      <AgentChat summary={summary} />
+      <AgentChat summary={summary} documents={documents} />
     </>
   );
 }

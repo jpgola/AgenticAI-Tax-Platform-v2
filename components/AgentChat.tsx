@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Chat } from '@google/genai';
-import { ChatMessage, TaxSummary } from '../types';
+import { ChatMessage, TaxSummary, TaxDocument } from '../types';
 import { createTaxChatSession } from '../services/geminiService';
 import { Button } from './Button';
 
 interface AgentChatProps {
     summary?: TaxSummary;
+    documents?: TaxDocument[];
 }
 
-export const AgentChat: React.FC<AgentChatProps> = ({ summary }) => {
+export const AgentChat: React.FC<AgentChatProps> = ({ summary, documents = [] }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -23,13 +24,14 @@ export const AgentChat: React.FC<AgentChatProps> = ({ summary }) => {
   const [chatSession, setChatSession] = useState<Chat | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Re-initialize chat when summary changes significantly to provide fresh context
-  // In a production app, we might just send a hidden message to the model instead of resetting.
+  // Re-initialize chat when summary or documents change
   useEffect(() => {
     const initChat = async () => {
       let contextString = "";
+      
       if (summary) {
-        contextString = `
+        contextString += `
+          --- FINANCIAL SUMMARY ---
           Total Income: $${summary.totalIncome}
           Deductions: $${summary.deductions}
           Taxable Income: $${Math.max(0, summary.totalIncome - summary.deductions)}
@@ -38,11 +40,23 @@ export const AgentChat: React.FC<AgentChatProps> = ({ summary }) => {
           Filing Status: ${summary.filingStatus}
         `;
       }
+
+      if (documents.length > 0) {
+        const docList = documents.map(d => `- ${d.name} (${d.type}, ${d.status})`).join('\n');
+        contextString += `
+          
+          --- UPLOADED DOCUMENTS ---
+          ${docList}
+        `;
+      } else {
+        contextString += `\n--- NO DOCUMENTS UPLOADED YET ---`;
+      }
+
       const session = await createTaxChatSession(contextString);
       setChatSession(session);
     };
     initChat();
-  }, [summary?.totalIncome, summary?.estimatedRefund]);
+  }, [summary?.totalIncome, summary?.estimatedRefund, documents.length]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });

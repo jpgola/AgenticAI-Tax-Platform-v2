@@ -56,7 +56,9 @@ export const analyzeDocumentMock = async (fileName: string): Promise<{ text: str
     
     await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate processing
 
-    if (fileName.toLowerCase().includes('w2') || fileName.toLowerCase().includes('w-2')) {
+    const name = fileName.toLowerCase();
+
+    if (name.includes('w2') || name.includes('w-2')) {
         return {
             text: "I've analyzed your W-2. It looks like standard employment income. I've extracted your wages and withholdings. Everything seems to match IRS records.",
             data: {
@@ -68,7 +70,36 @@ export const analyzeDocumentMock = async (fileName: string): Promise<{ text: str
                 "State": "CA"
             }
         };
-    } else if (fileName.toLowerCase().includes('1099')) {
+    } else if (name.includes('1099-div')) {
+         return {
+            text: "I've processed your 1099-DIV. I see dividend income which may be taxed at a lower capital gains rate.",
+            data: {
+                "Payer Name": "Brokerage Services Inc",
+                "Total Ordinary Dividends": 1250.00,
+                "Qualified Dividends": 1100.00,
+                "Federal Income Tax Withheld": 0.00
+            }
+         };
+    } else if (name.includes('1099-int')) {
+         return {
+            text: "I've analyzed your 1099-INT. This interest income will be added to your taxable income.",
+            data: {
+                "Payer Name": "National Savings Bank",
+                "Interest Income": 450.25,
+                "Federal Income Tax Withheld": 0.00
+            }
+         };
+    } else if (name.includes('k-1') || name.includes('k1')) {
+         return {
+            text: "I see a Schedule K-1. I've extracted your share of the business income/loss.",
+            data: {
+                "Entity Name": "Partnership Ventures LP",
+                "Ordinary Business Income": 5200.00,
+                "Net Rental Real Estate Income": -1200.00,
+                "Self-Employment Earnings": 5200.00
+            }
+         };
+    } else if (name.includes('1099')) {
          return {
             text: "I see a 1099-NEC. Since you have freelance income, I recommend we look into Schedule C deductions for your home office or equipment expenses.",
             data: {
