@@ -1,5 +1,5 @@
 
-# AgenticAI Tax (Intuit-like Demo)
+# AgenticAI Tax Demo
 
 This repo contains:
 - `backend/` FastAPI API (upload + preview) with unit tests
